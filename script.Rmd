@@ -1,0 +1,58 @@
+---
+title: "projet_orthomam"
+output: html_document
+date: "2022-11-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ape)
+library(tidyr)
+
+#importation des fichiers
+temp = list.files(path="./trees/",
+                  pattern = ".rootree$"
+                  )
+setwd("./trees")
+trees = lapply(temp, read.tree)
+
+# Creation de vecteurs correspondant à chaque espèce et son taxon pour réduire la verbosité
+R = "Rattus_norvegicus"
+S = "Mus_musculus" # S comme souris
+H = "Homo_sapiens"
+M = "Macaca_fascicularis"
+
+species = c(R, S, H, M)
+rodents = c(R, S)
+primates = c(H, M)
+```
+
+
+```{r}
+#jsp
+
+mrca_species = c()
+mrca_rodents = c()
+mrca_primates = c()
+tab_dist = c()
+
+for (i in 1:length(trees)) {
+  mrca_species[i] = getMRCA(trees[[i]], species)
+  mrca_rodents[i] = getMRCA(trees[[i]], rodents)
+  mrca_primates[i] = getMRCA(trees[[i]], primates)
+  tab_dist[[i]] = dist.nodes(trees[[i]])
+}
+
+# tab_dist[[1]][6,6]
+
+# Pour les primates
+dist_primates = c()
+dist_primates2 = c()
+for (i in 1:length(trees)) {
+  dist_primates[i] = tab_dist[[i]][getMRCA(trees[[i]], primates), getMRCA(trees[[1]], c(H,H))]
+}
+```
+
