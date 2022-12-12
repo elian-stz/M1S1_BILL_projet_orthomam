@@ -1,0 +1,207 @@
+---
+title: "ÉVOLUTION MOLÉCULAIRE COMPARÉE DES EXONS NUCLÉAIRES ORTHOLOGUES DE PRIMATES ET DE RONGEURS"
+author: "Allyson MOUREAUX et Elian STROZYK"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-12-16"
+category: "Catégorie 25"
+---
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+
+# TODO savoir l'unité de la longueur des branches => taux d'évolution est en ?.Ma^-1
+```
+
+
+```{r}
+library(ape)
+library(tidyr)
+
+#Importation des arbres qui se trouvent dans ./trees et création d'une liste pour les stocker
+temp = list.files(path="./trees/",
+                  pattern = ".rootree$"
+                  )
+setwd("./trees")
+trees = lapply(temp, read.tree)
+
+# Creation de vecteurs correspondant à chaque espèce et son taxon
+R = "Rattus_norvegicus"
+S = "Mus_musculus"
+H = "Homo_sapiens"
+M = "Macaca_fascicularis"
+
+species = c(R, S, H, M)
+rodents = c(R, S)
+primates = c(H, M)
+mouse = c(S, S) # nécessaire car getMRCA() a besoin d'un vecteur contenant au moins 2 éléments
+human = c(H, H)
+macaque = c(M, M)
+rat = c(R, R)
+```
+
+
+```{r}
+
+# Récupération des id des noeuds pour chaque arbre et pour chaque espèce/ancêtre
+# Récupération de la matrice des distances pour chaque arbre
+
+mrca_species = c()
+mrca_rodents = c()
+mrca_primates = c()
+mrca_human = c()
+mrca_mouse = c()
+mrca_rat = c()
+mrca_macaque = c()
+tab_dist = c()
+
+for (i in 1:length(trees)) {
+  mrca_species[i] = getMRCA(trees[[i]], species)
+  mrca_rodents[i] = getMRCA(trees[[i]], rodents)
+  mrca_primates[i] = getMRCA(trees[[i]], primates)
+  mrca_human[i] = getMRCA(trees[[i]], human)
+  mrca_mouse[i] = getMRCA(trees[[i]], mouse)
+  mrca_macaque[i] = getMRCA(trees[[i]], macaque)
+  mrca_rat[i] = getMRCA(trees[[i]], rat)
+  
+  tab_dist[[i]] = dist.nodes(trees[[i]])
+}
+```
+
+
+```{r}
+
+# Récupération des distances entre 2 noeuds
+# Les distances entre noeuds suivent la relation de Chasles
+dist_rodents.mouse = c()
+dist_rodents.rat = c()
+dist_primates.human = c()
+dist_primates.macaque = c()
+dist_primates.species = c()
+dist_rodents.species = c()
+
+
+for (i in 1:length(mrca_human)) {
+  dist_rodents.mouse[i] = tab_dist[[i]][mrca_rodents[i], mrca_mouse[i]]
+  dist_rodents.rat[i] = tab_dist[[i]][mrca_rodents[i], mrca_rat[i]]
+  dist_primates.human[i] = tab_dist[[i]][mrca_primates[i], mrca_human[i]]
+  dist_primates.macaque[i] = tab_dist[[i]][mrca_primates[i], mrca_macaque[i]]
+  dist_primates.species[i] = tab_dist[[i]][mrca_primates[i], mrca_species[i]]
+  dist_rodents.species[i] = tab_dist[[i]][mrca_rodents[i], mrca_species[i]]
+}
+```
+
+
+```{r}
+
+# Conversion en taux d'évolution en divisant par le temps depuis l'événement de spéciation
+
+r_rodents.mouse = c()
+r_rodents.rat = c()
+r_primates.human = c()
+r_primates.macaque = c()
+r_primates.species = c()
+r_rodents.species = c()
+
+for (i in 1:length(dist_primates.human)) {
+  r_rodents.mouse[i] = dist_rodents.mouse[i]/15
+  r_rodents.rat[i] = dist_rodents.rat[i]/15
+  r_primates.human[i] = dist_primates.human[i]/30
+  r_primates.macaque[i] = dist_primates.macaque/30
+  r_primates.species[i] = dist_primates.species[i]/60
+  r_rodents.species[i] = dist_rodents.species[i]/75
+}
+```
+
+
+```{r}
+# Médiane, quantiles 5% et 95%
+
+var = list("RS" = r_rodents.mouse, 
+           "RR" = r_rodents.rat, 
+           "RH" = r_primates.human, 
+           "RM" = r_primates.macaque, 
+           "RPRI" = r_primates.species, 
+           "RROD" = r_rodents.species
+           )
+
+mediane = c()
+quantile5 = c()
+quantile95 = c()
+
+mediane = unname(unlist(lapply(var, median)))
+quantile5 = unname(unlist(lapply(var, quantile, p = c(0.05))))
+quantile95 = unname(unlist(lapply(var, quantile, p = c(0.95))))
+
+tab_r = data.frame(names(var), quantile5, mediane, quantile95)
+knitr::kable(tab_r)
+```
+
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+
+# Création d'un tableau large indicé qui est transformé en tableau long
+tab_hist = data.frame(r_rodents.mouse, r_primates.human, id = 1:length(r_rodents.mouse))
+tab_hist = melt(tab_hist, id.vars="id")
+
+# Plot
+ggplot(tab_hist, aes(x=value, color=variable)) +
+  geom_histogram(aes(y=..density..), fill="white", alpha=0.5, position="dodge", bins=30)  +
+  theme_bw() + 
+  xlab(expression(Taux~"d'évolution"~("???" %.%Ma^{-1}))) +   
+  scale_color_manual(labels = c(expression(italic(Mus~musculus)), expression(italic(Homo~sapiens))),
+                     values = c("blue", "red")) +
+  geom_density()
+```
+
+
+```{r}
+# graphe commun
+
+library(ggplot2)
+library(ggpubr)
+
+dt = read.csv(file='csv.Rfriendly_incomplet.csv', sep=",", dec=".")
+dt$espece=factor(dt$espece)
+dt$quantile=factor(dt$quantile)
+
+ggplot(dt,aes(x = centre_classe, y = valeur))+
+  geom_point(mapping = aes(x = centre_classe, y = valeur, color = quantile,
+                           shape = espece), size = 3) +
+  theme_bw() + 
+  ylab(expression(Taux~"d'évolution"~("???" %.%Ma^{-1}))) +   
+  xlab(expression(G+C[3]~'%'~moyen~'(%)')) +
+  scale_shape_manual(labels = c(expression(italic(Homo~sapiens)), expression(italic(Mus~musculus))), values = c('circle', 'triangle')) +
+  geom_smooth(method = "lm", se = FALSE) +
+  stat_cor(aes(label = ..rr.label..), color = "red", geom = "label") +
+  facet_grid(~ espece)
+```
+
+
+```{r}
+# PAS DEMANDE
+# TODO ITALIQUE
+
+library(ggplot2)
+library(reshape2)
+tab_visu = data.frame(r_rodents.mouse, r_rodents.rat, r_rodents.species,
+                      r_primates.human, r_primates.macaque, r_primates.species)
+tab_visu = melt(tab_visu) # transformation d'un tableau large en tableau long (individu-type)
+
+ggplot(tab_visu, aes(x=variable,y=value,fill=variable))+
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  theme_bw() + 
+  ylab(expression(Taux~"d'évolution"~("???" %.%Ma^{-1}))) +   
+  geom_point(position=position_jitterdodge(), aes(colour = variable), size = 0.9) +
+  scale_x_discrete(labels=expression("Rodentia-Mus musculus", "Rodentia-Rattus norvegicus", "Rodentia-Euarchontoglires", "Primates-Homo sapiens", "Primates-Macaca fascicularis", "Primates-Euarchontoglires")) +
+  theme(legend.position="none") +
+  theme(axis.title.y=element_blank()) +
+  coord_flip() +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10))
+
+```
