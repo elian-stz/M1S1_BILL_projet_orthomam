@@ -1,14 +1,20 @@
 ---
 title: "ÉVOLUTION MOLÉCULAIRE COMPARÉE DES EXONS NUCLÉAIRES ORTHOLOGUES DE PRIMATES ET DE RONGEURS"
-author: "Allyson MOUREAUX et Elian STROZYK"
+author: "Allyson MOUREAUX, Elian STROZYK et Mattéo TRAISSAC-MONTAHUT"
+lang: fr
 output:
-  pdf_document: default
+  pdf_document: 
+    toc: true
   html_document: default
-date: "2022-12-16"
+date: "2022-12-15"
 geometry: margin=2.5cm
-fontzie: 12pt
+fontsize: 12pt
+classoption: a4
 header-includes:
     - \usepackage{setspace}\onehalfspacing
+    - \usepackage{lscape}
+    - \newcommand{\blandscape}{\begin{landscape}}
+    - \newcommand{\elandscape}{\end{landscape}}
 ---
 
 ```{r setup, include=FALSE}
@@ -19,17 +25,21 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 \newpage
 \onehalfspacing
 ```
+
 # Introduction
 
-Les primates et les rongeurs ayant un ancêtre commun, il a été trouvé des séquences d'exons orthologues chez ces deux espèces. Ce projet a pour but d'étudier la vitesse d'évolution des séquences exoniques ayant un pourcentage de G+C~3~ similaire. Comme la souris et l'Homme ont divergé depuis 90 Ma et que le pourcentage de G+C~3~ présente des variations importantes en général nous nous attendons à ce que la vitesse d'évolution soit différente.
+Des arbres de probabilité ont été extraits de la plateforme OrthoMaM. Ces arbres de probabilité ont été construits à partir d'alignements de séquences exoniques similaires de plusieurs mammifères. Ce projet a pour but d'étudier la vitesse d'évolution des séquences exoniques ayant un pourcentage de G+C~3~ similaire. Comme la souris et l'Homme ont divergé depuis 90 Ma et que le pourcentage de G+C~3~ présente des variations importantes en général nous nous attendons à ce que la vitesse d'évolution soit différente. Nous souhaitons également voir si le pourcentage de G+C~3~ influence le taux d'évolution.
 
 # Estimation du taux d'évolution pour chacune des six branches
+
+Nous importons nos données dans une liste et créons des vecteurs de noms d'espèces pour récupérer les identifiants des n\oe{}uds à partir de `getMRCA()`.
 
 ```{r}
 library(ape)
 library(tidyr)
 
-#Importation des arbres qui se trouvent dans ./trees et création d'une liste pour les stocker
+#Importation des arbres qui se trouvent dans ./trees
+#création d'une liste pour les stocker
 temp = list.files(path="./trees/",
                   pattern = ".rootree$"
                   )
@@ -37,28 +47,24 @@ setwd("./trees")
 trees = lapply(temp, read.tree)
 
 # Creation de vecteurs correspondant à chaque espèce et son taxon
-R = "Rattus_norvegicus"
-S = "Mus_musculus"
-H = "Homo_sapiens"
-M = "Macaca_fascicularis"
+R = "Rattus_norvegicus"; S = "Mus_musculus";
+H = "Homo_sapiens"; M = "Macaca_fascicularis"
 
-species = c(R, S, H, M)
-rodents = c(R, S)
-primates = c(H, M)
-mouse = c(S, S) # nécessaire car getMRCA() a besoin d'un vecteur contenant au moins 2 éléments
-human = c(H, H)
-macaque = c(M, M)
+species = c(R, S, H, M); rodents = c(R, S)
+primates = c(H, M); mouse = c(S, S)
+human = c(H, H); macaque = c(M, M)
 rat = c(R, R)
+# getMRCA() a besoin d'un vecteur contenant au moins 2 éléments
 ```
 
+Chaque espèce a un identifiant de n\oe{}ud différent selon l'arbre. Nous récupèrons donc ces identifiants que nous stockons dans des vecteurs. Egalement, nous créons une liste qui va comporter la matrice des distances entre chaque MRCA pour chaque arbre.
+
 ```{r}
-# Récupération des MRCA (ID des noeuds) pour chaque arbre et pour chaque espèce/ancêtre
-mrca_species = c()
-mrca_rodents = c()
-mrca_primates = c()
-mrca_human = c()
-mrca_mouse = c()
-mrca_rat = c()
+# Récupération des MRCA (ID des noeuds) pour chaque
+# arbre et pour chaque espèce/ancêtre
+mrca_species = c(); mrca_rodents = c()
+mrca_primates = c(); mrca_human = c()
+mrca_mouse = c(); mrca_rat = c()
 mrca_macaque = c()
 tab_dist = c()
 
@@ -71,51 +77,30 @@ for (i in 1:length(trees)) {
   mrca_mouse[i] = getMRCA(trees[[i]], mouse)
   mrca_macaque[i] = getMRCA(trees[[i]], macaque)
   mrca_rat[i] = getMRCA(trees[[i]], rat)
-  
-  tab_dist[[i]] = dist.nodes(trees[[i]])
+  tab_dist[[i]] = dist.nodes(trees[[i]]) # matrice de distance
 }
 ```
+
+A partir des distances de matrice, nous récupérons les données de distance avec les identifiants des n\oe{}uds qui nous intéressent. Pour récupérer le taux d'évolution, il suffit de diviser la distance entre deux MRCA par le temps depuis l'événement de spéciation, ces temps ont été récupérés à partir de l'arbre schématique du sujet.
 
 ```{r}
 #Création de vecteurs vides qui vont contenir les distances entre deux MRCA
-dist_rodents.mouse = c()
-dist_rodents.rat = c()
-dist_primates.human = c()
-dist_primates.macaque = c()
-dist_primates.species = c()
-dist_rodents.species = c()
+# qui vont ensuite être convertis en taux d'évolution
+r_rodents.mouse = c(); r_rodents.rat = c()
+r_primates.human = c(); r_primates.macaque = c()
+r_primates.species = c(); r_rodents.species = c()
 
 # Récupération des distances entre 2 noeuds
 # Les distances entre noeuds suivent la relation de Chasles
+# puis division par le temps depuis l'événement de spéciation
 for (i in 1:length(mrca_human)) {
-  dist_rodents.mouse[i] = tab_dist[[i]][mrca_rodents[i], mrca_mouse[i]]
-  dist_rodents.rat[i] = tab_dist[[i]][mrca_rodents[i], mrca_rat[i]]
-  dist_primates.human[i] = tab_dist[[i]][mrca_primates[i], mrca_human[i]]
-  dist_primates.macaque[i] = tab_dist[[i]][mrca_primates[i], mrca_macaque[i]]
-  dist_primates.species[i] = tab_dist[[i]][mrca_primates[i], mrca_species[i]]
-  dist_rodents.species[i] = tab_dist[[i]][mrca_rodents[i], mrca_species[i]]
-}
-```
-
-```{r}
-#Création de vecteurs vides qui vont contenir les taux d'évolution
-r_rodents.mouse = c()
-r_rodents.rat = c()
-r_primates.human = c()
-r_primates.macaque = c()
-r_primates.species = c()
-r_rodents.species = c()
-
-# stockage du taux d'évolution dans les vecteurs vides
-#en divisant la distance par le temps depuis l'événement de spéciation
-for (i in 1:length(dist_primates.human)) {
-  r_rodents.mouse[i] = dist_rodents.mouse[i]/15
-  r_rodents.rat[i] = dist_rodents.rat[i]/15
-  r_primates.human[i] = dist_primates.human[i]/30
-  r_primates.macaque[i] = dist_primates.macaque/30
-  r_primates.species[i] = dist_primates.species[i]/60
-  r_rodents.species[i] = dist_rodents.species[i]/75
-}
+  r_rodents.mouse[i] = (tab_dist[[i]][mrca_rodents[i], mrca_mouse[i]])/15
+  r_rodents.rat[i] = (tab_dist[[i]][mrca_rodents[i], mrca_rat[i]])/15
+  r_primates.human[i] = (tab_dist[[i]][mrca_primates[i], mrca_human[i]])/30
+  r_primates.macaque[i] = (tab_dist[[i]][mrca_primates[i], mrca_macaque[i]])/30
+  r_primates.species[i] = (tab_dist[[i]][mrca_primates[i], mrca_species[i]])/60
+  r_rodents.species[i] = (tab_dist[[i]][mrca_rodents[i], mrca_species[i]])/75
+} 
 ```
 
 Voir **annexe 1** pour la distribution des taux d'évolution des six espèces sous forme de boîtes à moustache.
@@ -125,16 +110,13 @@ Voir **annexe 1** pour la distribution des taux d'évolution des six espèces so
 ## Médiane, quantiles à 5% et 95% de chacune des six branches
 
 ```{r}
-# Médiane, quantiles 5% et 95%
 #création des variables qui vont contenir la médiane et les quantiles
 taux_devolution = list("RS" = r_rodents.mouse, "RR" = r_rodents.rat, 
                        "RH" = r_primates.human, "RM" = r_primates.macaque, 
                        "RPRI" = r_primates.species, "RROD" = r_rodents.species
                        )
 #création de vecteurs vides
-mediane = c()
-quantile5 = c()
-quantile95 = c()
+mediane = c(); quantile5 = c(); quantile95 = c()
 
 #application de la fonction médiane quantiles5 et quantiles95
 #à la liste taux_devolution qui contient tous les taux d'évolutions
@@ -147,56 +129,45 @@ tab_r = data.frame(names(taux_devolution), quantile5, mediane, quantile95)
 knitr::kable(tab_r)
 ```
 
--   **RS**, R~S~ : le taux d'évolution de la souris *Mus musculus* depuis l'ancêtre des rongeurs
--   **RR**, R~R~ : le taux d'évolution du rat *Ratus norvegicus* depuis l'ancêtre des rongeurs
--   **RH**, R~H~ : le taux d'évolution de l'humain *Homo sapiens* depuis l'ancêtre des primates
--   **RM**, R~M~ : le taux d'évolution du macaque *Macaca fascicularis* depuis l'ancêtre des primates
--   **RPRI**, R~PRI~ : le taux d'évolution de l'ancêtre des primates depuis l'ancêtre des euarchontoglires
--   **RROD**, R~ROD~ : le taux d'évolution de l'ancêtre des rongeurs depuis l'ancêtre des euarchontoglires
-
 ## Histogramme des taux d'évolution de l'humain et de la souris
 
-```{r}
-library(ggplot2)
-library(reshape2)
-library(dplyr)
+```{r, out.width="75%", fig.cap="Histogramme du taux d'évolution pour \\textit{Homo sapiens} et \\textit{Mus musculus}.", fig.align="center"}
+library(ggplot2); library(reshape2); library(dplyr)
 
 # Création d'un tableau large indicé qui est transformé en tableau long
-tab_hist = data.frame(r_rodents.mouse, r_primates.human, id = 1:length(r_rodents.mouse))
+tab_hist = data.frame(r_rodents.mouse, r_primates.human, 
+                      id = 1:length(r_rodents.mouse))
 tab_hist = melt(tab_hist, id.vars="id")
 
 # Histogramme représentant le taux d'évolution de GC3 chez l'Homme et la souris
 ggplot(tab_hist, aes(x=value, color=variable)) +
-  geom_histogram(aes(y=..count..), fill="white", alpha=0.5, position="dodge", bins=30)  +
+  geom_histogram(aes(y=..count..), fill="white", alpha=0.7,
+                 position="dodge", bins=30)  +
   theme_bw() + 
   xlab(expression(Taux~"d'évolution"~("Nombre de substitutions par site" %.%Ma^{-1}))) +   
-  scale_color_manual(labels = c(expression(italic(Mus~musculus)), expression(italic(Homo~sapiens))),
+  scale_color_manual(labels = c(expression(italic(Mus~musculus)), 
+                                expression(italic(Homo~sapiens))),
                      values = c("blue", "red"))
 ```
 
-Il semble y avoir un taux d'évolution plus important chez la souris que chez l'Homme. Nous pouvons emettre l'hypothèse que le pourcentage de G+C~3~ chez l'Homme évolue moins que celui de la souris puisque ces mutations seraient délétères. Les mutations à cet endroit de l'exon sont certainement contre seléctionnées chez l'Homme tandis que chez la souris elles seraient bénéfiques et se fixeraient donc avec plus de probabilité. De plus, l'Homme ayant un temps de génération plus long que la souris le taux d'évolution serait donc plus lent. Nous savons que l'horloge moléculaire peut varier entre lignée surtout si les temps de générations sont différents.
-
-Nous observons un taux d'évolution hétérogène entre gènes intra-espèces. Cela doit être dû au hasard des mutations.
+Nous observons un taux d'évolution moyen plus important chez la souris que chez l'Homme **(figure 1)**. Nous pouvons émettre l'hypothèse que le pourcentage de G+C~3~ chez l'Homme évolue moins que celui de la souris puisque ces mutations seraient délétères. Les mutations à cet endroit de l'exon sont certainement contre seléctionnées chez l'Homme tandis que chez la souris elles seraient bénéfiques et se fixeraient donc avec plus de probabilité. De plus, l'Homme ayant un temps de génération plus long que la souris le taux d'évolution serait donc plus lent. Nous savons que l'horloge moléculaire peut varier entre lignée surtout si les temps de générations sont différents. Nous observons un taux d’évolution intra-espèces hétérogènes. Cela peut potentiellement être dû à des mutations qui sont liées aux conditions environnementales de l’espèce pour assurer sa survie.
 
 # Synthèse et perspectives
 
-Voir **annexe 2** pour le tableau des données mises en commun
+Les quantiles et les médianes pour la souris et l'Homme entre les différents groupes semblent tous concorder puisqu'ils ont le même ordre de grandeur (**annexe 3**). Pour l'Homme, la dispersion semble bien plus faible que chez la souris pour laquelle les quantiles sont plus éloignés de la médiane que chez l'Homme.
 
-Voir **annexe 3** pour le graphe de nuage de points issu du tableau de l'annexe 2
+D'après les tendances (**annexe 3**), nous observons que lorsque le pourcentage moyen de G+C~3~ augmente chez l'Homme le taux d'évolution augmente. Le contraire est observé chez la souris. Mais d'après le R², il n'y a pas de corrélation entre le taux d'évolution et le pourcentage de G+C~3~ étant donné qu'il est trop proche de 0 (**annexe 3**).
 
-Les quantiles et les médianes pour la souris entre les différents groupes semblent tous concorder puisqu'ils ont les mêmes ordres de grandeurs. Il en va de même pour l'Homme. Dans ce dernier, la dispersion semble bien plus faible que chez la souris où les quantiles sont plus éloignés de la médiane que chez l'Homme.
-
-Nous observons que lorsque le pourcentage moyen de G+C~3~ augmente chez l'Homme le taux d'évolution augmente. Le contraire est observé chez la souris.
-
-Pour vérifier si cela est généralisable il faudrait plus de réplicats. Ici nous n'en avons que 11. Il faudrait également comparer entre d'autre espèces avec des temps de divergences différents pour vérifier la corrélation.
+Pour vérifier si cela est généralisable il faudrait plus de réplicats. Ici nous n'en avons que 13. Il faudrait également comparer entre d'autre espèces avec des temps de divergence différents pour confirmer nos conclusions.
 
 \newpage
 
 # Annexes
 
-## Annexe 1 : taux d'évolution pour différentes espèces depuis leur ancêtre d'intérêt
+## Annexe 1 : taux d'évolution pour différentes espèces
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.cap="Boîtes à moustache des taux d'évolution de différentes espèces depuis leur ancêtre d'intérêt."}
+
 # ANNEXE3 : facilitation de visualisation 
 
 #Taux d'évolution pour chaque espèce
@@ -217,32 +188,27 @@ ggplot(tab_visu, aes(x=variable,y=value,fill=variable))+
   coord_flip()
 ```
 
+\newpage
+
 ## Annexe 2 : tableau récapitulatif des résultats pour différents pourcentages de G+C~3~
 
-```{r, echo=FALSE}
+![Tableau récapitulatif](tableau_de_ses_morts.png)
 
-dt = read.csv(file='csv.Rfriendly_incomplet.csv', sep=",", dec=".")
-dt$espece=factor(dt$espece)
-dt$quantile=factor(dt$quantile)
+\newpage
 
-#ANNEXE 2 : Tableau de données en commun
-knitr::kable(dt)
-```
+## Annexe 3 : nuage de points du tableau récapitulatif des résultats
 
--   **categorie** : catégorie choisie par un groupe
--   **centre_classe** : moyenne entre les bornes inférieure et supérieure des catégories
--   **espece** : espèces étudiées, souris et humain
--   **valeur** : taux d'évolution en nombre de substitutions par site par Ma
-
-## Annexe 3 : nuage de points du tableau récapitulatif des résultats pour différents pourcentages de G+C~3~
-
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.cap="Nuage de points représentant le pourcentage G+C\\textsubscript{3} en fonction du taux d'évolution chez \\textit{Mus musculus} et \\textit{Homo sapiens}."}
 # ANNEXE3 : facilitation de visualisation 
 #graphe commun
 
 library(ggplot2)
 library(ggpubr)
 library(ggpmisc)
+
+dt = read.csv(file='csv.Rfriendly_complet.csv', sep=",", dec=".")
+dt$espece=factor(dt$espece)
+dt$quantile=factor(dt$quantile)
 
 ggplot(data = dt, aes(x = centre_classe, y = valeur)) +
   geom_point(mapping = aes(x = centre_classe, y = valeur, color = quantile,
@@ -259,6 +225,4 @@ ggplot(data = dt, aes(x = centre_classe, y = valeur)) +
   #   geom_smooth(method = "lm", se = FALSE, aes(color=quantile))
 ```
 
-**Nuage de points représentant le taux d'évolution de l'humain et de la souris en fonction du pourcentage de G+C~3~ pour différents quantiles (5%, médiane, 95%)**
-
-La droite de régression linéaire a été générée en poolant les quantiles mais pas l'espèce.
+La droite de régression linéaire a été générée en poolant les trois quantiles mais pas les espèces.
